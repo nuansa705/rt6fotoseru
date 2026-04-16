@@ -309,11 +309,28 @@
   <div class="footer">Made with ❤️ for RT 06 RW 29 &nbsp;|&nbsp; Trip Pangandaran 2026</div>
 </div>
 
+<!-- ✅ UPDATED AI: MediaPipe Hands -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
 <script>
 // ── Config ──
 const COUNTDOWN_SECS = 3;
 const TOTAL_PHOTOS = 3;
 const COLLAGE_SIZE = 1080;
+
+// ✅ UPDATED AI: Gesture detection variables
+let hands = null;
+let cameraAI = null;
+let gestureActive = true;
+let lastTriggerTime = 0;
+const TRIGGER_DELAY = 4000; // jeda 4 detik biar ga spam
+
+// ✅ UPDATED: Gesture detection config
+let motionDetectionActive = false;
+let lastFrame = null;
+const MOTION_THRESHOLD = 25; // sensitivitas
+const MOTION_AREA_TOP = 0.4; // area atas kamera (40%)
 
 let stream = null;
 let photos = [];
@@ -340,11 +357,161 @@ for(let i=0;i<45;i++){
   wrap.appendChild(d);
 }
 
+
+
+// ✅ UPDATED AI: Init MediaPipe Hands
+function initHandTracking(video){
+
+  hands = new Hands({
+    locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    }
+  });
+
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7
+  });
+
+  hands.onResults(onHandResults);
+
+  cameraAI = new Camera(video, {
+    onFrame: async () => {
+      await hands.send({image: video});
+    },
+    width: 640,
+    height: 480
+  });
+
+  cameraAI.start();
+}
+
+// ✅ UPDATED AI: Gesture logic
+
+
+// ✅ UPDATED GESTURE: Gesture detection utama
+function onHandResults(results){
+  if (!gestureActive || capturing) return;
+
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0){
+
+    const landmarks = results.multiHandLandmarks[0];
+    const now = Date.now();
+
+    if (now - lastTriggerTime < TRIGGER_DELAY) return;
+
+    // ✌️ Peace
+    if (isPeaceGesture(landmarks)){
+      lastTriggerTime = now;
+      setStatus('✌️ Peace terdeteksi! Foto dimulai...');
+      startCapture();
+      return;
+    }
+
+    // 👍 Jempol
+    if (isThumbsUpGesture(landmarks)){
+      lastTriggerTime = now;
+      setStatus('👍 Jempol terdeteksi! Foto dimulai...');
+      startCapture();
+      return;
+    }
+  }
+}
+
+// ✅ UPDATED GESTURE: Helper cek jari
+function isFingerUp(landmarks, tip, pip){
+  return landmarks[tip].y < landmarks[pip].y;
+}
+
+// ✅ UPDATED GESTURE: Peace sign (✌️)
+function isPeaceGesture(landmarks){
+  const indexUp  = isFingerUp(landmarks, 8, 6);  // telunjuk
+  const middleUp = isFingerUp(landmarks, 12, 10); // tengah
+
+  const ringDown  = landmarks[16].y > landmarks[14].y;
+  const pinkyDown = landmarks[20].y > landmarks[18].y;
+
+  return indexUp && middleUp && ringDown && pinkyDown;
+}
+
+// ✅ UPDATED GESTURE: Thumbs up (👍)
+function isThumbsUpGesture(landmarks){
+  const thumbUp = landmarks[4].y < landmarks[3].y; // ibu jari naik
+  //const indexTip = landmarks[8];   // ujung telunjuk
+
+  const indexDown  = landmarks[8].y  > landmarks[6].y;
+  const middleDown = landmarks[12].y > landmarks[10].y;
+  const ringDown   = landmarks[16].y > landmarks[14].y;
+  const pinkyDown  = landmarks[20].y > landmarks[18].y;
+  
+
+  return thumbUp && indexDown && middleDown && ringDown && pinkyDown;
+}
+
+
+
+// ✅ UPDATED: Motion detection (angkat tangan trigger)
+function startMotionDetection(){
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  motionDetectionActive = true;
+
+  setInterval(() => {
+    if (!motionDetectionActive || capturing) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(video, 0, 0);
+
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (lastFrame) {
+      let diff = 0;
+      let count = 0;
+
+      // fokus hanya area atas (deteksi tangan)
+      const heightLimit = canvas.height * MOTION_AREA_TOP;
+
+      for (let y = 0; y < heightLimit; y += 4) {
+        for (let x = 0; x < canvas.width; x += 4) {
+          const i = (y * canvas.width + x) * 4;
+
+          const d =
+            Math.abs(frame.data[i] - lastFrame.data[i]) +
+            Math.abs(frame.data[i+1] - lastFrame.data[i+1]) +
+            Math.abs(frame.data[i+2] - lastFrame.data[i+2]);
+
+          diff += d;
+          count++;
+        }
+      }
+
+      const avgDiff = diff / count;
+
+      if (avgDiff > MOTION_THRESHOLD) {
+        setStatus('✋ Tangan terdeteksi! Ambil foto...');
+        startCapture(); // trigger otomatis
+      }
+    }
+
+    lastFrame = frame;
+
+  }, 300);
+}
+
 // ── Camera init ──
 async function initCamera(){
   try {
     stream = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:960,facingMode:'user'}, audio:false});
     document.getElementById('video').srcObject = stream;
+
+    initHandTracking(video); // ✅ UPDATED AI
+
   } catch(e){
     setStatus('❌ Kamera tidak bisa diakses. Izinkan akses kamera ya!');
     document.getElementById('btn-capture').disabled = true;
@@ -363,7 +530,10 @@ async function startCapture(){
   updateStrip();
 
   for(let i=0;i<TOTAL_PHOTOS;i++){
-    setStatus(`📷 Foto ${i+1} dari ${TOTAL_PHOTOS} – siap-siap!`);
+    //setStatus(`📷 Foto ${i+1} dari ${TOTAL_PHOTOS} – siap-siap!`);
+    //setStatus('📸 Tekan tombol ATAU angkat tangan untuk mulai!'); // ✅ UPDATED
+    // ✅ UPDATED GESTURE
+    setStatus('📸 Klik tombol / ✌️ Peace / 👍 Jempol untuk mulai!');
     await countdown();
     const dataUrl = capturePhoto();
     photoDataURLs.push(dataUrl);
