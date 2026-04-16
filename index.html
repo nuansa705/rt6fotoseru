@@ -48,13 +48,14 @@
   }
 
   /* ── Header ── */
-  .header { text-align: center; margin-bottom: 20px; }
+  .header { text-align: center; margin-bottom: 5px; }
   .header h1 {
     font-family: 'Pacifico', cursive;
     font-size: clamp(28px, 7vw, 52px);
     color: #fff;
     text-shadow: 0 4px 16px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.2);
     line-height: 1.1;
+    margin-bottom: 10px;
   }
   .header p {
     font-size: clamp(11px, 2.5vw, 15px);
@@ -63,9 +64,15 @@
     margin-top: 6px;
     text-shadow: 0 2px 8px rgba(0,0,0,.3);
     letter-spacing: .3px;
+   
   }
   .wave-emoji { display: inline-block; animation: waveAnim 1.5s ease-in-out infinite; }
   @keyframes waveAnim { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(20deg)} }
+
+  @keyframes fadeIn {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
   /* ── Card ── */
   .card {
@@ -295,6 +302,7 @@
     </div>
     <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-top:4px;">
       <button class="btn btn-download" onclick="downloadCollage()">⬇️ Download PNG</button>
+      <button class="btn btn-green" onclick="shareWhatsApp()">💬 Share WA</button>
       <button class="btn btn-reset" onclick="resetAll()">🔄 Foto Lagi</button>
     </div>
   </div>
@@ -477,21 +485,21 @@ async function buildCollage(){
   // "Goes to Pangandaran"
   ctx.font = 'bold 88px "Pacifico", cursive, serif';
   ctx.fillStyle = '#fff';
-  ctx.fillText('Goes to Pangandaran', C/2, 118);
+  ctx.fillText('Goes to Pangandaran', C/2, 110);
 
   // Subtitle
   ctx.shadowBlur = 10;
   ctx.font = 'bold 28px "Nunito", Arial, sans-serif';
   ctx.fillStyle = '#fef9c3';
-  ctx.fillText('Sareng Warga RT 06 RW 29, Leuwih Rame  |  Trip 2026', C/2, 162);
+  ctx.fillText('Sareng Warga RT 06 RW 29, Leuwih Rame  |  Trip 2026', C/2, 180);
   ctx.restore();
 
   // ── Polaroid frames ──
   const configs = [
-    { x: 42,  y: 210, w: 310, h: 350, rot: -6,  imgIdx: 0 },
-    { x: 310, y: 165, w: 420, h: 475, rot:  0,  imgIdx: 1 }, // center, bigger
-    { x: 730, y: 225, w: 310, h: 350, rot:  5,  imgIdx: 2 },
-  ];
+  { x: 42,  y: 230, w: 330, h: 350, rot: -6,  imgIdx: 0 },
+  { x: 310, y: 380, w: 420, h: 475, rot:  0,  imgIdx: 1 },
+  { x: 730, y: 250, w: 310, h: 350, rot:  5,  imgIdx: 2 },
+];
 
   for(const cfg of configs){
     drawPolaroid(ctx, imgs[cfg.imgIdx], cfg.x, cfg.y, cfg.w, cfg.h, cfg.rot * Math.PI/180);
@@ -524,6 +532,15 @@ async function buildCollage(){
   const collageDisplayCanvas = document.getElementById('collage-canvas');
   collageDisplayCanvas.style.width = displaySize+'px';
   collageDisplayCanvas.style.height = displaySize+'px';
+
+  section.style.animation = "fadeIn 0.6s ease";
+  // ── Auto scroll ke hasil ──
+setTimeout(() => {
+  document.getElementById('collage-section')
+    .scrollIntoView({ behavior: 'smooth' });
+    
+}, 300);
+
 }
 
 function drawPolaroid(ctx, img, x, y, w, h, rot){
@@ -721,8 +738,18 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 // ── Download ──
 function downloadCollage(){
   const canvas = document.getElementById('collage-canvas');
+  //const a = document.createElement('a');
+   // 🕒 Buat timestamp
+  const now = new Date();
+  const timestamp = now.getFullYear() +
+    ('0' + (now.getMonth()+1)).slice(-2) +
+    ('0' + now.getDate()).slice(-2) + '_' +
+    ('0' + now.getHours()).slice(-2) +
+    ('0' + now.getMinutes()).slice(-2) +
+    ('0' + now.getSeconds()).slice(-2);
+
   const a = document.createElement('a');
-  a.download = 'Pangandaran-RT06-Trip2026.png';
+  a.download = `JOS-WR_RT06_Trip2026_${timestamp}.png`;
   a.href = canvas.toDataURL('image/png');
   a.click();
 }
@@ -740,6 +767,12 @@ function resetAll(){
   setStatus('📸 Siap ambil foto! Tekan tombol untuk mulai.');
   document.getElementById('loading').style.display = 'none';
 }
+
+function shareWhatsApp() {
+  const text = encodeURIComponent('🏖️ Goes to Pangandaran bareng Warga RT 06 RW 29!\n✨ Leuwih Rame | Trip 2026\n\n📸 Foto dari photobooth kita!');
+  window.open('https://wa.me/?text=' + text, '_blank');
+}
+
 </script>
 </body>
 </html>
