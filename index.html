@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photobooth – Goes to Pangandaran 🌊</title>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #0ea5e9;
+    --sea: #06b6d4;
+    --sand: #fbbf24;
+    --palm: #16a34a;
+    --foam: #e0f2fe;
+    --white: #ffffff;
+    --dark: #1e3a5f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(160deg, #0ea5e9 0%, #059669 55%, #ca8a04 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Confetti ── */
+  .confetti-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .dot {
+    position: absolute;
+    border-radius: 2px;
+    opacity: .75;
+    animation: fall linear infinite;
+  }
+  @keyframes fall {
+    0%   { transform: translateY(-20px) rotate(0deg);   opacity: .8; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── Beach SVG decoration ── */
+  #beach-bg { position: fixed; bottom: 0; left: 0; width: 100%; pointer-events: none; z-index: 0; }
+
+  /* ── Wrapper ── */
+  #app {
+    position: relative; z-index: 10;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px 40px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header { text-align: center; margin-bottom: 20px; }
+  .header h1 {
+    font-family: 'Pacifico', cursive;
+    font-size: clamp(28px, 7vw, 52px);
+    color: #fff;
+    text-shadow: 0 4px 16px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.2);
+    line-height: 1.1;
+  }
+  .header p {
+    font-size: clamp(11px, 2.5vw, 15px);
+    color: #fef9c3;
+    font-weight: 700;
+    margin-top: 6px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.3);
+    letter-spacing: .3px;
+  }
+  .wave-emoji { display: inline-block; animation: waveAnim 1.5s ease-in-out infinite; }
+  @keyframes waveAnim { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(20deg)} }
+
+  /* ── Card ── */
+  .card {
+    background: rgba(255,255,255,.18);
+    backdrop-filter: blur(12px);
+    border: 1.5px solid rgba(255,255,255,.4);
+    border-radius: 24px;
+    padding: 24px;
+    width: 100%; max-width: 560px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.2);
+  }
+
+  /* ── Camera feed ── */
+  #camera-section { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  #video-wrap {
+    position: relative; border-radius: 16px;
+    overflow: hidden;
+    border: 4px solid #fff;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3);
+    width: 100%; max-width: 460px; aspect-ratio: 4/3;
+    background: #000;
+  }
+  #video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
+  #countdown-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45);
+    font-family: 'Pacifico', cursive;
+    font-size: 100px; color: #fff;
+    text-shadow: 0 0 30px #fbbf24;
+    display: none;
+    animation: pulse .7s ease-in-out infinite alternate;
+  }
+  @keyframes pulse { from{transform:scale(.9)} to{transform:scale(1.05)} }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .1s; border-radius: 12px; }
+
+  /* ── Photo strip ── */
+  #strip { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+  .thumb-wrap {
+    background: #fff; padding: 5px 5px 20px; border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    transform: rotate(-3deg); transition: transform .3s;
+    width: 90px;
+  }
+  .thumb-wrap:nth-child(2) { transform: rotate(1.5deg); }
+  .thumb-wrap:nth-child(3) { transform: rotate(-2deg); }
+  .thumb-wrap img { width: 100%; height: 65px; object-fit: cover; border-radius: 2px; display: block; }
+  .thumb-label { font-size: 9px; text-align: center; color: #888; margin-top: 4px; font-family: 'Nunito'; }
+
+  /* ── Slots indicator ── */
+  #slots { display: flex; gap: 8px; }
+  .slot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2.5px solid #fff;
+    background: rgba(255,255,255,.3);
+    transition: background .3s;
+  }
+  .slot.filled { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 13px 32px; border: none; border-radius: 50px; cursor: pointer;
+    font-family: 'Nunito', sans-serif; font-weight: 900;
+    font-size: 16px; letter-spacing: .5px;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .btn:active { transform: scale(.97); }
+  .btn-capture { background: linear-gradient(135deg, #fbbf24, #f97316); color: #fff; font-size: 18px; }
+  .btn-reset   { background: rgba(255,255,255,.8); color: #1e3a5f; }
+  .btn-download{ background: linear-gradient(135deg, #059669, #0ea5e9); color: #fff; font-size: 18px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  /* ── Status ── */
+  #status {
+    color: #fef9c3; font-weight: 700; font-size: 15px;
+    text-align: center; min-height: 22px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+
+  /* ── Collage section ── */
+  #collage-section { display: none; flex-direction: column; align-items: center; gap: 20px; }
+  #collage-wrap {
+    position: relative;
+    width: 100%; max-width: 480px; aspect-ratio: 1;
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0,0,0,.4);
+  }
+  #collage-canvas { width: 100%; height: 100%; display: block; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 28px; text-align: center; color: rgba(255,255,255,.7); font-size: 12px; }
+
+  /* ── Loading spinner ── */
+  #loading {
+    display: none;
+    flex-direction: column; align-items: center; gap: 14px;
+    color: #fef9c3; font-weight: 700; font-size: 16px;
+  }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 5px solid rgba(255,255,255,.3);
+    border-top-color: #fbbf24;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  canvas { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Hidden canvas for capture -->
+<canvas id="capture-canvas"></canvas>
+
+<!-- Confetti -->
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- Beach SVG background -->
+<svg id="beach-bg" viewBox="0 0 1440 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+  <!-- Sky gradient -->
+  <defs>
+    <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity=".7"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity=".9"/>
+    </linearGradient>
+    <linearGradient id="sandGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sea -->
+  <path d="M0 120 Q180 90 360 120 Q540 150 720 120 Q900 90 1080 120 Q1260 150 1440 120 L1440 280 L0 280Z" fill="url(#seaGrad)" opacity=".85"/>
+  <!-- Wave 2 -->
+  <path d="M0 155 Q180 135 360 155 Q540 175 720 155 Q900 135 1080 155 Q1260 175 1440 155 L1440 280 L0 280Z" fill="#0284c7" opacity=".5"/>
+  <!-- Foam -->
+  <path d="M0 190 Q360 175 720 190 Q1080 205 1440 190 L1440 280 L0 280Z" fill="#e0f2fe" opacity=".4"/>
+  <!-- Sand -->
+  <path d="M0 230 Q360 215 720 230 Q1080 245 1440 230 L1440 280 L0 280Z" fill="url(#sandGrad)"/>
+
+  <!-- Sun -->
+  <circle cx="80" cy="60" r="38" fill="#fbbf24" opacity=".95"/>
+  <!-- Sun rays -->
+  <g stroke="#fbbf24" stroke-width="3" opacity=".6">
+    <line x1="80" y1="10" x2="80" y2="0"/>
+    <line x1="117" y1="23" x2="124" y2="16"/>
+    <line x1="130" y1="60" x2="140" y2="60"/>
+    <line x1="117" y1="97" x2="124" y2="104"/>
+    <line x1="80" y1="110" x2="80" y2="120"/>
+    <line x1="43" y1="97" x2="36" y2="104"/>
+    <line x1="30" y1="60" x2="20" y2="60"/>
+    <line x1="43" y1="23" x2="36" y2="16"/>
+  </g>
+
+  <!-- Palm left -->
+  <rect x="170" y="120" width="12" height="120" fill="#92400e" rx="4"/>
+  <path d="M176 122 Q130 80 90 95 Q130 105 176 122Z" fill="#16a34a"/>
+  <path d="M176 122 Q145 65 175 50 Q168 85 176 122Z" fill="#15803d"/>
+  <path d="M176 122 Q210 75 240 90 Q210 105 176 122Z" fill="#16a34a"/>
+  <path d="M176 122 Q215 60 200 45 Q195 82 176 122Z" fill="#15803d"/>
+  <path d="M176 122 Q155 105 140 115Q158 108 176 122Z" fill="#16a34a"/>
+
+  <!-- Palm right -->
+  <rect x="1258" y="110" width="12" height="130" fill="#92400e" rx="4"/>
+  <path d="M1264 112 Q1220 70 1180 85 Q1220 95 1264 112Z" fill="#16a34a"/>
+  <path d="M1264 112 Q1232 55 1262 40 Q1256 75 1264 112Z" fill="#15803d"/>
+  <path d="M1264 112 Q1298 65 1328 80 Q1298 95 1264 112Z" fill="#16a34a"/>
+  <path d="M1264 112 Q1302 50 1288 35 Q1283 72 1264 112Z" fill="#15803d"/>
+
+  <!-- Birds -->
+  <g fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round">
+    <path d="M600 55 Q610 48 620 55"/>
+    <path d="M625 45 Q637 37 649 45"/>
+    <path d="M652 60 Q663 52 674 60"/>
+    <path d="M700 40 Q713 31 726 40"/>
+  </g>
+
+  <!-- Decorative waves text area -->
+  <path d="M0 265 Q120 258 240 265 Q360 272 480 265 Q600 258 720 265 Q840 272 960 265 Q1080 258 1200 265 Q1320 272 1440 265" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2"/>
+</svg>
+
+<div id="app">
+  <div class="header">
+    <h1>🌊 Goes to Pangandaran <span class="wave-emoji">🌴</span></h1>
+    <p>Sareng Warga RT 06 RW 29, Leuwih Rame | Trip 2026</p>
+  </div>
+
+  <!-- Camera section -->
+  <div class="card" id="camera-section">
+    <div id="video-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="countdown-overlay" aria-live="assertive"></div>
+      <div id="flash"></div>
+    </div>
+
+    <div style="display:flex; justify-content:center; gap:10px; margin-top:12px;">
+      <div id="slots">
+        <div class="slot" id="s0"></div>
+        <div class="slot" id="s1"></div>
+        <div class="slot" id="s2"></div>
+      </div>
+    </div>
+
+    <div id="strip"></div>
+
+    <p id="status">📸 Siap ambil foto! Tekan tombol untuk mulai.</p>
+
+    <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-top:6px;">
+      <button class="btn btn-capture" id="btn-capture" onclick="startCapture()">📷 Mulai Foto!</button>
+      <button class="btn btn-reset" id="btn-reset" onclick="resetAll()" style="display:none">🔄 Ulangi</button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>✨ Sedang membuat kolase Pangandaran...</p>
+  </div>
+
+  <!-- Collage section -->
+  <div id="collage-section" class="card">
+    <div id="collage-wrap">
+      <canvas id="collage-canvas"></canvas>
+    </div>
+    <div style="display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin-top:4px;">
+      <button class="btn btn-download" onclick="downloadCollage()">⬇️ Download PNG</button>
+      <button class="btn btn-reset" onclick="resetAll()">🔄 Foto Lagi</button>
+    </div>
+  </div>
+
+  <div class="footer">Made with ❤️ for RT 06 RW 29 &nbsp;|&nbsp; Trip Pangandaran 2026</div>
+</div>
+
+<script>
+// ── Config ──
+const COUNTDOWN_SECS = 3;
+const TOTAL_PHOTOS = 3;
+const COLLAGE_SIZE = 1080;
+
+let stream = null;
+let photos = [];
+let capturing = false;
+let photoDataURLs = [];
+
+// ── Confetti ──
+const confettiColors = ['#fbbf24','#f97316','#10b981','#0ea5e9','#ec4899','#8b5cf6','#fff'];
+const wrap = document.getElementById('confetti');
+for(let i=0;i<45;i++){
+  const d = document.createElement('div');
+  d.className = 'dot';
+  d.style.cssText = `
+    left:${Math.random()*100}%;
+    top:${Math.random()*100}%;
+    width:${6+Math.random()*8}px;
+    height:${6+Math.random()*8}px;
+    background:${confettiColors[Math.floor(Math.random()*confettiColors.length)]};
+    animation-duration:${4+Math.random()*6}s;
+    animation-delay:${Math.random()*5}s;
+    border-radius:${Math.random()>.5?'50%':'2px'};
+    transform:rotate(${Math.random()*360}deg);
+  `;
+  wrap.appendChild(d);
+}
+
+// ── Camera init ──
+async function initCamera(){
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:960,facingMode:'user'}, audio:false});
+    document.getElementById('video').srcObject = stream;
+  } catch(e){
+    setStatus('❌ Kamera tidak bisa diakses. Izinkan akses kamera ya!');
+    document.getElementById('btn-capture').disabled = true;
+  }
+}
+initCamera();
+
+function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+// ── Capture flow ──
+async function startCapture(){
+  if(capturing) return;
+  capturing = true;
+  document.getElementById('btn-capture').disabled = true;
+  photos = []; photoDataURLs = [];
+  updateStrip();
+
+  for(let i=0;i<TOTAL_PHOTOS;i++){
+    setStatus(`📷 Foto ${i+1} dari ${TOTAL_PHOTOS} – siap-siap!`);
+    await countdown();
+    const dataUrl = capturePhoto();
+    photoDataURLs.push(dataUrl);
+    markSlot(i);
+    await showThumb(dataUrl, i);
+    if(i < TOTAL_PHOTOS-1){
+      setStatus(`✅ Foto ${i+1} tersimpan! Bersiap untuk berikutnya...`);
+      await sleep(900);
+    }
+  }
+
+  setStatus('🎉 Semua foto sudah! Membuat kolase...');
+  await sleep(400);
+  showLoading(true);
+  await sleep(200);
+  await buildCollage();
+  showLoading(false);
+  capturing = false;
+}
+
+async function countdown(){
+  const overlay = document.getElementById('countdown-overlay');
+  overlay.style.display = 'flex';
+  for(let n=COUNTDOWN_SECS;n>=1;n--){
+    overlay.textContent = n;
+    await sleep(1000);
+  }
+  overlay.textContent = '📸';
+  await sleep(300);
+  overlay.style.display = 'none';
+}
+
+function capturePhoto(){
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('capture-canvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+  ctx.restore();
+  flashEffect();
+  return canvas.toDataURL('image/jpeg', 0.92);
+}
+
+function flashEffect(){
+  const f = document.getElementById('flash');
+  f.style.opacity = '1';
+  setTimeout(()=>{ f.style.opacity='0'; }, 120);
+}
+
+function markSlot(i){
+  document.getElementById('s'+i).classList.add('filled');
+}
+
+async function showThumb(dataUrl, i){
+  const strip = document.getElementById('strip');
+  const labels = ['Foto 1 🤙','Foto 2 😎','Foto 3 🌊'];
+  const div = document.createElement('div');
+  div.className = 'thumb-wrap';
+  div.innerHTML = `<img src="${dataUrl}"><div class="thumb-label">${labels[i]}</div>`;
+  strip.appendChild(div);
+  await sleep(200);
+}
+
+function updateStrip(){ document.getElementById('strip').innerHTML=''; }
+
+function showLoading(show){
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+  document.getElementById('camera-section').style.display = show ? 'none' : 'flex';
+}
+
+// ── Collage builder (Canvas 2D) ──
+async function buildCollage(){
+  const C = COLLAGE_SIZE;
+  const canvas = document.getElementById('collage-canvas');
+  canvas.width = C; canvas.height = C;
+  const ctx = canvas.getContext('2d');
+
+  // Load images
+  const imgs = await Promise.all(photoDataURLs.map(loadImage));
+
+  // ── Background ──
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, C, C);
+  skyGrad.addColorStop(0,   '#0ea5e9');
+  skyGrad.addColorStop(0.4, '#059669');
+  skyGrad.addColorStop(1,   '#ca8a04');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0,0,C,C);
+
+  // Subtle texture dots
+  ctx.save();
+  for(let i=0;i<180;i++){
+    ctx.beginPath();
+    ctx.arc(Math.random()*C, Math.random()*C, Math.random()*4+1, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*.12})`;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // ── Beach illustration ──
+  drawBeach(ctx, C);
+
+  // ── Confetti lines ──
+  drawConfetti(ctx, C);
+
+  // ── Title ──
+  ctx.save();
+  ctx.textAlign = 'center';
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,.4)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 6;
+
+  // "Goes to Pangandaran"
+  ctx.font = 'bold 88px "Pacifico", cursive, serif';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('Goes to Pangandaran', C/2, 118);
+
+  // Subtitle
+  ctx.shadowBlur = 10;
+  ctx.font = 'bold 28px "Nunito", Arial, sans-serif';
+  ctx.fillStyle = '#fef9c3';
+  ctx.fillText('Sareng Warga RT 06 RW 29, Leuwih Rame  |  Trip 2026', C/2, 162);
+  ctx.restore();
+
+  // ── Polaroid frames ──
+  const configs = [
+    { x: 42,  y: 210, w: 310, h: 350, rot: -6,  imgIdx: 0 },
+    { x: 310, y: 165, w: 420, h: 475, rot:  0,  imgIdx: 1 }, // center, bigger
+    { x: 730, y: 225, w: 310, h: 350, rot:  5,  imgIdx: 2 },
+  ];
+
+  for(const cfg of configs){
+    drawPolaroid(ctx, imgs[cfg.imgIdx], cfg.x, cfg.y, cfg.w, cfg.h, cfg.rot * Math.PI/180);
+  }
+
+  // ── Bottom banner ──
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.fillRect(0, C-90, C, 90);
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 28px "Nunito", Arial, sans-serif';
+  ctx.fillStyle = '#fef9c3';
+  ctx.shadowColor = 'rgba(0,0,0,.4)';
+  ctx.shadowBlur = 8;
+  ctx.fillText('🌊 Pangandaran Beach Trip 2026 🌴', C/2, C-46);
+  ctx.font = '18px "Nunito", Arial, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.fillText('RT 06 Trip 2026 BY JOS-WR', C/2, C-18);
+  ctx.restore();
+
+  // ── Show collage ──
+  document.getElementById('camera-section').style.display = 'none';
+  const section = document.getElementById('collage-section');
+  section.style.display = 'flex';
+  document.getElementById('btn-reset').style.display = 'inline-block';
+
+  // Scale canvas display
+  const cw = document.getElementById('collage-wrap');
+  const displaySize = Math.min(cw.offsetWidth, 480);
+  const collageDisplayCanvas = document.getElementById('collage-canvas');
+  collageDisplayCanvas.style.width = displaySize+'px';
+  collageDisplayCanvas.style.height = displaySize+'px';
+}
+
+function drawPolaroid(ctx, img, x, y, w, h, rot){
+  const PAD = 16;
+  const BOTTOM = 60;
+  ctx.save();
+  ctx.translate(x + w/2, y + h/2);
+  ctx.rotate(rot);
+  ctx.translate(-w/2, -h/2);
+
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0,0,0,.35)';
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetX = 6;
+  ctx.shadowOffsetY = 14;
+
+  // White frame
+  ctx.fillStyle = '#fff';
+  roundRect(ctx, 0, 0, w, h, 10);
+  ctx.fill();
+
+  // Reset shadow for photo
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Photo area
+  const photoW = w - PAD*2;
+  const photoH = h - PAD - BOTTOM;
+  ctx.save();
+  roundRect(ctx, PAD, PAD, photoW, photoH, 4);
+  ctx.clip();
+
+  // Draw image centered/cropped
+  const scaleX = photoW / img.naturalWidth;
+  const scaleY = photoH / img.naturalHeight;
+  const scale = Math.max(scaleX, scaleY);
+  const dw = img.naturalWidth * scale;
+  const dh = img.naturalHeight * scale;
+  const dx = PAD + (photoW - dw)/2;
+  const dy = PAD + (photoH - dh)/2;
+  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.restore();
+
+  // Slightly warm vignette tint on photo
+  const vigGrad = ctx.createRadialGradient(w/2, PAD+photoH/2, photoH*.1, w/2, PAD+photoH/2, photoH*.7);
+  vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  vigGrad.addColorStop(1, 'rgba(0,0,0,.15)');
+  ctx.save();
+  roundRect(ctx, PAD, PAD, photoW, photoH, 4);
+  ctx.clip();
+  ctx.fillStyle = vigGrad;
+  ctx.fillRect(PAD, PAD, photoW, photoH);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawBeach(ctx, C){
+  ctx.save();
+  // Sun
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(C-110, 130, 65, 0, Math.PI*2);
+  ctx.fill();
+  // Sun glow
+  ctx.fillStyle = 'rgba(251,191,36,.25)';
+  ctx.beginPath();
+  ctx.arc(C-110, 130, 95, 0, Math.PI*2);
+  ctx.fill();
+
+  // Sea wave bottom
+  ctx.fillStyle = 'rgba(6,182,212,.55)';
+  ctx.beginPath();
+  ctx.moveTo(0, C-220);
+  for(let x=0;x<=C;x+=40){
+    ctx.quadraticCurveTo(x+20, C-240+(Math.sin(x*.015)*20), x+40, C-220);
+  }
+  ctx.lineTo(C, C); ctx.lineTo(0, C);
+  ctx.closePath(); ctx.fill();
+
+  // Sand
+  const sandGrad = ctx.createLinearGradient(0, C-160, 0, C);
+  sandGrad.addColorStop(0, '#fde68a');
+  sandGrad.addColorStop(1, '#f59e0b');
+  ctx.fillStyle = sandGrad;
+  ctx.beginPath();
+  ctx.moveTo(0, C-155);
+  for(let x=0;x<=C;x+=60){
+    ctx.quadraticCurveTo(x+30, C-170+(Math.sin(x*.012)*12), x+60, C-155);
+  }
+  ctx.lineTo(C, C); ctx.lineTo(0, C);
+  ctx.closePath(); ctx.fill();
+
+  // Palm left
+  drawPalm(ctx, 90, C-155, -1);
+  // Palm right
+  drawPalm(ctx, C-90, C-145, 1);
+
+  // Birds
+  ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  [[200,200],[260,180],[310,205],[370,185]].forEach(([bx,by])=>{
+    ctx.beginPath(); ctx.moveTo(bx-15,by); ctx.quadraticCurveTo(bx,by-10,bx+15,by); ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawPalm(ctx, x, base, dir){
+  ctx.save();
+  // trunk
+  ctx.strokeStyle = '#92400e'; ctx.lineWidth = 16; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, base);
+  ctx.quadraticCurveTo(x + dir*30, base-130, x + dir*10, base-220);
+  ctx.stroke();
+  // fronds
+  const top = {x: x+dir*10, y: base-220};
+  const fronds = [
+    [-dir*90, -30],[dir*70,-60],[dir*20,-90],[-dir*20,-30],[dir*40,-20]
+  ];
+  ctx.fillStyle = '#16a34a';
+  fronds.forEach(([fx, fy])=>{
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.quadraticCurveTo(top.x+fx*.5, top.y+fy*.5, top.x+fx, top.y+fy);
+    ctx.quadraticCurveTo(top.x+fx*.5+dir*10, top.y+fy*.5+10, top.x, top.y);
+    ctx.fillStyle = Math.random()>.5?'#16a34a':'#15803d';
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawConfetti(ctx, C){
+  const cols = ['#fbbf24','#f97316','#ec4899','#8b5cf6','#10b981','#fff','#0ea5e9'];
+  for(let i=0;i<60;i++){
+    const cx = Math.random()*C;
+    const cy = Math.random()*C*.6 + 120;
+    const size = 6+Math.random()*12;
+    const col = cols[Math.floor(Math.random()*cols.length)];
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.random()*Math.PI*2);
+    ctx.fillStyle = col;
+    ctx.globalAlpha = .55+Math.random()*.35;
+    if(Math.random()>.5){
+      ctx.fillRect(-size/2,-size/2,size,size*1.6);
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, size/2, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // Playful squiggles
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,.25)';
+  ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for(let i=0;i<8;i++){
+    const sx = Math.random()*C*.8+50;
+    const sy = Math.random()*C*.4+150;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    for(let j=0;j<5;j++){
+      ctx.quadraticCurveTo(sx+j*30+15, sy+(Math.random()-.5)*40, sx+(j+1)*30, sy);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+function loadImage(src){
+  return new Promise((res,rej)=>{
+    const i = new Image();
+    i.onload = ()=>res(i);
+    i.onerror = rej;
+    i.src = src;
+  });
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ── Download ──
+function downloadCollage(){
+  const canvas = document.getElementById('collage-canvas');
+  const a = document.createElement('a');
+  a.download = 'Pangandaran-RT06-Trip2026.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// ── Reset ──
+function resetAll(){
+  photos = []; photoDataURLs = [];
+  document.getElementById('strip').innerHTML = '';
+  ['s0','s1','s2'].forEach(id=>document.getElementById(id).classList.remove('filled'));
+  document.getElementById('collage-section').style.display = 'none';
+  document.getElementById('camera-section').style.display = 'flex';
+  document.getElementById('btn-capture').disabled = false;
+  document.getElementById('btn-reset').style.display = 'none';
+  capturing = false;
+  setStatus('📸 Siap ambil foto! Tekan tombol untuk mulai.');
+  document.getElementById('loading').style.display = 'none';
+}
+</script>
+</body>
+</html>
